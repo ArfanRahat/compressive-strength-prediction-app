@@ -51,6 +51,58 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Move the cached function outside the class
+@st.cache_resource
+def load_model():
+    """Load the LightGBM model"""
+    try:
+        # Feature info for scaler initialization
+        feature_info = {
+            'Cement': {'min': 100, 'max': 600},
+            'FA': {'min': 0, 'max': 400},
+            'CA': {'min': 600, 'max': 1400},
+            'Water': {'min': 100, 'max': 300},
+            'w/c': {'min': 0.2, 'max': 0.8},
+            'Curing days': {'min': 1, 'max': 365},
+            'Density ': {'min': 2000, 'max': 2800},
+            'Crushing value': {'min': 10, 'max': 40},
+            'Water absorption ': {'min': 0.1, 'max': 5.0},
+            'Abrasion value': {'min': 10, 'max': 50},
+            'Specific gravity': {'min': 2.0, 'max': 3.5}
+        }
+        
+        # Try to load from different possible locations
+        possible_paths = [
+            'lightgbm_regressor_model.pkl',
+            'model/lightgbm_regressor_model.pkl',
+            './lightgbm_regressor_model.pkl'
+        ]
+        
+        model_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                model_path = path
+                break
+        
+        if model_path is None:
+            raise FileNotFoundError("Model file not found. Please upload lightgbm_regressor_model.pkl")
+        
+        model = joblib.load(model_path)
+        
+        # Initialize scaler with approximate training data ranges
+        scaler = MinMaxScaler()
+        dummy_data = []
+        for feature, info in feature_info.items():
+            dummy_data.append([info['min'], info['max']])
+        
+        dummy_array = np.array(dummy_data).T
+        scaler.fit(dummy_array)
+        
+        return model, scaler, True
+        
+    except Exception as e:
+        return None, None, False
+
 class ConcreteStrengthPredictor:
     def __init__(self):
         self.feature_info = {
@@ -85,43 +137,8 @@ class ConcreteStrengthPredictor:
             }
         }
         
-        self.load_model()
-    
-    @st.cache_resource
-    def load_model(_self):
-        """Load the LightGBM model"""
-        try:
-            # Try to load from different possible locations
-            possible_paths = [
-                'lightgbm_regressor_model.pkl',
-                'model/lightgbm_regressor_model.pkl',
-                './lightgbm_regressor_model.pkl'
-            ]
-            
-            model_path = None
-            for path in possible_paths:
-                if os.path.exists(path):
-                    model_path = path
-                    break
-            
-            if model_path is None:
-                raise FileNotFoundError("Model file not found. Please upload lightgbm_regressor_model.pkl")
-            
-            model = joblib.load(model_path)
-            
-            # Initialize scaler with approximate training data ranges
-            scaler = MinMaxScaler()
-            dummy_data = []
-            for feature, info in _self.feature_info.items():
-                dummy_data.append([info['min'], info['max']])
-            
-            dummy_array = np.array(dummy_data).T
-            scaler.fit(dummy_array)
-            
-            return model, scaler, True
-            
-        except Exception as e:
-            return None, None, False
+        # Load model using the cached function
+        self.model, self.scaler, self.model_loaded = load_model()
     
     def predict_strength(self, values):
         """Make prediction"""
@@ -186,15 +203,26 @@ class ConcreteStrengthPredictor:
         fig.update_layout(height=300)
         return fig
     
+    def initialize_session_state(self):
+        """Initialize session state variables"""
+        if 'input_values' not in st.session_state:
+            st.session_state.input_values = {}
+            for feature, info in self.feature_info.items():
+                st.session_state.input_values[feature] = info['default']
+        
+        if 'force_update' not in st.session_state:
+            st.session_state.force_update = False
+    
+    def update_input_values(self, new_values):
+        """Update input values and force widget refresh"""
+        st.session_state.input_values = new_values.copy()
+        st.session_state.force_update = True
+    
     def run_app(self):
         """Run the Streamlit app"""
         
-        # Initialize session state for button actions
-        if 'action' not in st.session_state:
-            st.session_state.action = None
-        
-        # Load model
-        self.model, self.scaler, self.model_loaded = self.load_model()
+        # Initialize session state
+        self.initialize_session_state()
         
         # Header
         st.markdown("""
@@ -216,25 +244,21 @@ class ConcreteStrengthPredictor:
         
         for name, values in self.example_mixes.items():
             if st.sidebar.button(name, key=f"sidebar_{name}"):
-                st.session_state.action = f"load_{name}"
+                self.update_input_values(values)
                 st.rerun()
         
-        # Process button actions
-        if st.session_state.action:
-            if st.session_state.action.startswith("load_"):
-                mix_name = st.session_state.action.replace("load_", "")
-                if mix_name in self.example_mixes:
-                    for feature, value in self.example_mixes[mix_name].items():
-                        st.session_state[f"default_{feature}"] = value
-            elif st.session_state.action == "set_defaults":
-                for feature, info in self.feature_info.items():
-                    st.session_state[f"default_{feature}"] = info['default']
-            elif st.session_state.action == "clear_all":
-                for feature in self.feature_info.keys():
-                    st.session_state[f"default_{feature}"] = float(self.feature_info[feature]['min'])
-            
-            # Clear the action
-            st.session_state.action = None
+        # Additional sidebar buttons
+        st.sidebar.markdown("---")
+        
+        if st.sidebar.button("⚙️ Set Defaults", key="sidebar_defaults"):
+            default_values = {feature: info['default'] for feature, info in self.feature_info.items()}
+            self.update_input_values(default_values)
+            st.rerun()
+        
+        if st.sidebar.button("🧹 Clear All", key="sidebar_clear"):
+            clear_values = {feature: float(info['min']) for feature, info in self.feature_info.items()}
+            self.update_input_values(clear_values)
+            st.rerun()
         
         # Main content
         col1, col2 = st.columns([1, 1])
@@ -249,12 +273,14 @@ class ConcreteStrengthPredictor:
             
             for feature in features[:6]:
                 info = self.feature_info[feature]
-                default_value = st.session_state.get(f"default_{feature}", info['default'])
+                # Use session state value if available, otherwise use default
+                current_value = st.session_state.input_values.get(feature, info['default'])
+                
                 input_values[feature] = st.number_input(
                     f"{feature} ({info['unit']})",
                     min_value=float(info['min']),
                     max_value=float(info['max']),
-                    value=float(default_value),
+                    value=float(current_value),
                     step=0.1 if info['max'] < 10 else 1.0,
                     key=f"input_{feature}",
                     help=f"Range: {info['min']} - {info['max']} {info['unit']}"
@@ -269,12 +295,14 @@ class ConcreteStrengthPredictor:
             # Last 5 parameters
             for feature in features[6:]:
                 info = self.feature_info[feature]
-                default_value = st.session_state.get(f"default_{feature}", info['default'])
+                # Use session state value if available, otherwise use default
+                current_value = st.session_state.input_values.get(feature, info['default'])
+                
                 input_values[feature] = st.number_input(
                     f"{feature} ({info['unit']})",
                     min_value=float(info['min']),
                     max_value=float(info['max']),
-                    value=float(default_value),
+                    value=float(current_value),
                     step=0.1 if info['max'] < 10 else 1.0,
                     key=f"input_{feature}",
                     help=f"Range: {info['min']} - {info['max']} {info['unit']}"
@@ -282,10 +310,13 @@ class ConcreteStrengthPredictor:
             
             st.markdown('</div>', unsafe_allow_html=True)
         
+        # Update session state with current input values
+        st.session_state.input_values = input_values
+        
         # Prediction button
         col1, col2, col3 = st.columns([1, 1, 1])
         
-        with col1:
+        with col2:
             if st.button("🔮 Predict Strength", type="primary", use_container_width=True):
                 prediction, error = self.predict_strength(input_values)
                 
@@ -293,17 +324,7 @@ class ConcreteStrengthPredictor:
                     st.error(f"❌ Error: {error}")
                 else:
                     st.session_state['prediction'] = prediction
-                    st.session_state['input_values'] = input_values
-        
-        with col2:
-            if st.button("⚙️ Set Defaults", use_container_width=True):
-                st.session_state.action = "set_defaults"
-                st.rerun()
-        
-        with col3:
-            if st.button("🧹 Clear All", use_container_width=True):
-                st.session_state.action = "clear_all"
-                st.rerun()
+                    st.session_state['prediction_input_values'] = input_values
         
         # Display results
         if 'prediction' in st.session_state:
@@ -343,7 +364,7 @@ class ConcreteStrengthPredictor:
             
             # Create a DataFrame for display
             summary_data = []
-            for feature, value in st.session_state['input_values'].items():
+            for feature, value in st.session_state.get('prediction_input_values', {}).items():
                 unit = self.feature_info[feature]['unit']
                 summary_data.append({
                     'Parameter': feature,
@@ -351,8 +372,9 @@ class ConcreteStrengthPredictor:
                     'Unit': unit
                 })
             
-            summary_df = pd.DataFrame(summary_data)
-            st.dataframe(summary_df, use_container_width=True)
+            if summary_data:
+                summary_df = pd.DataFrame(summary_data)
+                st.dataframe(summary_df, use_container_width=True)
             
             # Additional info
             st.info("💡 Note: This prediction is based on a machine learning model trained on concrete mix design data. Results should be verified through actual testing.")
