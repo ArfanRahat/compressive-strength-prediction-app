@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Concrete Strength Predictor",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # Set to collapsed or removed entirely if not needed
 )
 
 # Custom CSS for better styling
@@ -41,13 +41,7 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 1rem;
     }
-    .example-button {
-        margin: 0.25rem;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        border: none;
-        cursor: pointer;
-    }
+    /* Removed .example-button as it's no longer used */
 </style>
 """, unsafe_allow_html=True)
 
@@ -119,23 +113,8 @@ class ConcreteStrengthPredictor:
             'Specific gravity': {'min': 2.0 * 0.5, 'max': 3.5 * 2, 'unit': 'g/cm³', 'default': 2.65}
         }
         
-        self.example_mixes = {
-            "Standard Mix": {
-                'Cement': 350, 'FA': 150, 'CA': 1100, 'Water': 175, 'w/c': 0.5,
-                'Curing days': 28, 'Density ': 2400, 'Crushing value': 25,
-                'Water absorption ': 1.5, 'Abrasion value': 30, 'Specific gravity': 2.65
-            },
-            "High Strength Mix": {
-                'Cement': 450, 'FA': 200, 'CA': 1000, 'Water': 160, 'w/c': 0.35,
-                'Curing days': 56, 'Density ': 2450, 'Crushing value': 20,
-                'Water absorption ': 1.2, 'Abrasion value': 25, 'Specific gravity': 2.70
-            },
-            "Low Cement Mix": {
-                'Cement': 250, 'FA': 100, 'CA': 1200, 'Water': 200, 'w/c': 0.6,
-                'Curing days': 14, 'Density ': 2350, 'Crushing value': 30,
-                'Water absorption ': 2.0, 'Abrasion value': 35, 'Specific gravity': 2.60
-            }
-        }
+        # example_mixes is no longer needed as sidebar buttons are removed
+        self.example_mixes = {} 
         
         # Load model using the cached function
         self.model, self.scaler, self.model_loaded = load_model()
@@ -210,13 +189,15 @@ class ConcreteStrengthPredictor:
             for feature, info in self.feature_info.items():
                 st.session_state.input_values[feature] = info['default']
         
-        if 'force_update' not in st.session_state:
-            st.session_state.force_update = False
+        # 'force_update' is no longer needed without sidebar buttons
+        # if 'force_update' not in st.session_state:
+        #     st.session_state.force_update = False
     
-    def update_input_values(self, new_values):
-        """Update input values and force widget refresh"""
-        st.session_state.input_values = new_values.copy()
-        st.session_state.force_update = True
+    # update_input_values is no longer needed without sidebar buttons
+    # def update_input_values(self, new_values):
+    #     """Update input values and force widget refresh"""
+    #     st.session_state.input_values = new_values.copy()
+    #     st.session_state.force_update = True
     
     def run_app(self):
         """Run the Streamlit app"""
@@ -238,9 +219,6 @@ class ConcreteStrengthPredictor:
             st.stop()
         else:
             st.success("✅ Model loaded successfully!")
-        
-        # No sidebar example/reset buttons
-        st.sidebar.markdown("This sidebar is currently empty.")
         
         # Main content
         col1, col2 = st.columns([1, 1])
