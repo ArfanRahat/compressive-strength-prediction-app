@@ -189,6 +189,10 @@ class ConcreteStrengthPredictor:
     def run_app(self):
         """Run the Streamlit app"""
         
+        # Initialize session state for button actions
+        if 'action' not in st.session_state:
+            st.session_state.action = None
+        
         # Load model
         self.model, self.scaler, self.model_loaded = self.load_model()
         
@@ -211,10 +215,26 @@ class ConcreteStrengthPredictor:
         st.sidebar.header("📋 Example Concrete Mixes")
         
         for name, values in self.example_mixes.items():
-            if st.sidebar.button(name, key=name):
-                for feature, value in values.items():
-                    st.session_state[f"input_{feature}"] = value
+            if st.sidebar.button(name, key=f"sidebar_{name}"):
+                st.session_state.action = f"load_{name}"
                 st.rerun()
+        
+        # Process button actions
+        if st.session_state.action:
+            if st.session_state.action.startswith("load_"):
+                mix_name = st.session_state.action.replace("load_", "")
+                if mix_name in self.example_mixes:
+                    for feature, value in self.example_mixes[mix_name].items():
+                        st.session_state[f"default_{feature}"] = value
+            elif st.session_state.action == "set_defaults":
+                for feature, info in self.feature_info.items():
+                    st.session_state[f"default_{feature}"] = info['default']
+            elif st.session_state.action == "clear_all":
+                for feature in self.feature_info.keys():
+                    st.session_state[f"default_{feature}"] = float(self.feature_info[feature]['min'])
+            
+            # Clear the action
+            st.session_state.action = None
         
         # Main content
         col1, col2 = st.columns([1, 1])
@@ -229,11 +249,12 @@ class ConcreteStrengthPredictor:
             
             for feature in features[:6]:
                 info = self.feature_info[feature]
+                default_value = st.session_state.get(f"default_{feature}", info['default'])
                 input_values[feature] = st.number_input(
                     f"{feature} ({info['unit']})",
                     min_value=float(info['min']),
                     max_value=float(info['max']),
-                    value=float(st.session_state.get(f"input_{feature}", info['default'])),
+                    value=float(default_value),
                     step=0.1 if info['max'] < 10 else 1.0,
                     key=f"input_{feature}",
                     help=f"Range: {info['min']} - {info['max']} {info['unit']}"
@@ -248,11 +269,12 @@ class ConcreteStrengthPredictor:
             # Last 5 parameters
             for feature in features[6:]:
                 info = self.feature_info[feature]
+                default_value = st.session_state.get(f"default_{feature}", info['default'])
                 input_values[feature] = st.number_input(
                     f"{feature} ({info['unit']})",
                     min_value=float(info['min']),
                     max_value=float(info['max']),
-                    value=float(st.session_state.get(f"input_{feature}", info['default'])),
+                    value=float(default_value),
                     step=0.1 if info['max'] < 10 else 1.0,
                     key=f"input_{feature}",
                     help=f"Range: {info['min']} - {info['max']} {info['unit']}"
@@ -275,14 +297,12 @@ class ConcreteStrengthPredictor:
         
         with col2:
             if st.button("⚙️ Set Defaults", use_container_width=True):
-                for feature, info in self.feature_info.items():
-                    st.session_state[f"input_{feature}"] = info['default']
+                st.session_state.action = "set_defaults"
                 st.rerun()
         
         with col3:
             if st.button("🧹 Clear All", use_container_width=True):
-                for feature in self.feature_info.keys():
-                    st.session_state[f"input_{feature}"] = 0.0
+                st.session_state.action = "clear_all"
                 st.rerun()
         
         # Display results
