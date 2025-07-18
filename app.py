@@ -58,17 +58,17 @@ def load_model():
     try:
         # Feature info for scaler initialization
         feature_info = {
-            'Cement': {'min': 100, 'max': 600},
-            'FA': {'min': 0, 'max': 400},
-            'CA': {'min': 600, 'max': 1400},
-            'Water': {'min': 100, 'max': 300},
-            'w/c': {'min': 0.2, 'max': 0.8},
-            'Curing days': {'min': 1, 'max': 365},
-            'Density ': {'min': 2000, 'max': 2800},
-            'Crushing value': {'min': 10, 'max': 40},
-            'Water absorption ': {'min': 0.1, 'max': 5.0},
-            'Abrasion value': {'min': 10, 'max': 50},
-            'Specific gravity': {'min': 2.0, 'max': 3.5}
+            'Cement': {'min': 100 * 0.5, 'max': 600 * 2},
+            'FA': {'min': 0 * 0.5, 'max': 400 * 2},
+            'CA': {'min': 600 * 0.5, 'max': 1400 * 2},
+            'Water': {'min': 100 * 0.5, 'max': 300 * 2},
+            'w/c': {'min': 0.2 * 0.5, 'max': 0.8 * 2},
+            'Curing days': {'min': 1 * 0.5, 'max': 365 * 2},
+            'Density ': {'min': 2000 * 0.5, 'max': 2800 * 2},
+            'Crushing value': {'min': 10 * 0.5, 'max': 40 * 2},
+            'Water absorption ': {'min': 0.1 * 0.5, 'max': 5.0 * 2},
+            'Abrasion value': {'min': 10 * 0.5, 'max': 50 * 2},
+            'Specific gravity': {'min': 2.0 * 0.5, 'max': 3.5 * 2}
         }
         
         # Try to load from different possible locations
@@ -106,17 +106,17 @@ def load_model():
 class ConcreteStrengthPredictor:
     def __init__(self):
         self.feature_info = {
-            'Cement': {'min': 100, 'max': 600, 'unit': 'kg/m³', 'default': 300},
-            'FA': {'min': 0, 'max': 400, 'unit': 'kg/m³', 'default': 150},
-            'CA': {'min': 600, 'max': 1400, 'unit': 'kg/m³', 'default': 1000},
-            'Water': {'min': 100, 'max': 300, 'unit': 'kg/m³', 'default': 180},
-            'w/c': {'min': 0.2, 'max': 0.8, 'unit': 'ratio', 'default': 0.5},
-            'Curing days': {'min': 1, 'max': 365, 'unit': 'days', 'default': 28},
-            'Density ': {'min': 2000, 'max': 2800, 'unit': 'kg/m³', 'default': 2400},
-            'Crushing value': {'min': 10, 'max': 40, 'unit': '%', 'default': 25},
-            'Water absorption ': {'min': 0.1, 'max': 5.0, 'unit': '%', 'default': 1.5},
-            'Abrasion value': {'min': 10, 'max': 50, 'unit': '%', 'default': 30},
-            'Specific gravity': {'min': 2.0, 'max': 3.5, 'unit': 'g/cm³', 'default': 2.65}
+            'Cement': {'min': 100 * 0.5, 'max': 600 * 2, 'unit': 'kg/m³', 'default': 300},
+            'FA': {'min': 0 * 0.5, 'max': 400 * 2, 'unit': 'kg/m³', 'default': 150},
+            'CA': {'min': 600 * 0.5, 'max': 1400 * 2, 'unit': 'kg/m³', 'default': 1000},
+            'Water': {'min': 100 * 0.5, 'max': 300 * 2, 'unit': 'kg/m³', 'default': 180},
+            'w/c': {'min': 0.2 * 0.5, 'max': 0.8 * 2, 'unit': 'ratio', 'default': 0.5},
+            'Curing days': {'min': 1 * 0.5, 'max': 365 * 2, 'unit': 'days', 'default': 28},
+            'Density ': {'min': 2000 * 0.5, 'max': 2800 * 2, 'unit': 'kg/m³', 'default': 2400},
+            'Crushing value': {'min': 10 * 0.5, 'max': 40 * 2, 'unit': '%', 'default': 25},
+            'Water absorption ': {'min': 0.1 * 0.5, 'max': 5.0 * 2, 'unit': '%', 'default': 1.5},
+            'Abrasion value': {'min': 10 * 0.5, 'max': 50 * 2, 'unit': '%', 'default': 30},
+            'Specific gravity': {'min': 2.0 * 0.5, 'max': 3.5 * 2, 'unit': 'g/cm³', 'default': 2.65}
         }
         
         self.example_mixes = {
@@ -239,26 +239,8 @@ class ConcreteStrengthPredictor:
         else:
             st.success("✅ Model loaded successfully!")
         
-        # Sidebar for examples
-        st.sidebar.header("📋 Example Concrete Mixes")
-        
-        for name, values in self.example_mixes.items():
-            if st.sidebar.button(name, key=f"sidebar_{name}"):
-                self.update_input_values(values)
-                st.rerun()
-        
-        # Additional sidebar buttons
-        st.sidebar.markdown("---")
-        
-        if st.sidebar.button("⚙️ Set Defaults", key="sidebar_defaults"):
-            default_values = {feature: info['default'] for feature, info in self.feature_info.items()}
-            self.update_input_values(default_values)
-            st.rerun()
-        
-        if st.sidebar.button("🧹 Clear All", key="sidebar_clear"):
-            clear_values = {feature: float(info['min']) for feature, info in self.feature_info.items()}
-            self.update_input_values(clear_values)
-            st.rerun()
+        # No sidebar example/reset buttons
+        st.sidebar.markdown("This sidebar is currently empty.")
         
         # Main content
         col1, col2 = st.columns([1, 1])
@@ -353,7 +335,7 @@ class ConcreteStrengthPredictor:
                 classification, color = self.get_strength_classification(prediction)
                 st.markdown(f"""
                 <div style="background: {color}; padding: 2rem; border-radius: 10px; 
-                           text-align: center; color: white; margin-top: 2rem;">
+                            text-align: center; color: white; margin-top: 2rem;">
                     <h3>🏗️ Classification</h3>
                     <h2>{classification}</h2>
                 </div>
